@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Clínica Estética - Historia Clínica</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f8; }
+    h2 { color: #005577; }
+    input, textarea, select, button { margin-bottom: 10px; width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+    .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    canvas { border: 1px solid #ccc; background: #fff; }
+    img { max-width: 100px; display: block; margin-top: 10px; }
+    #fotoContainer img { margin-right: 10px; }
+  </style>
+</head>
+<body>
+
+  <h2>Registro de Paciente</h2>
+  <div class="card">
+    <label>Nombre:</label>
+    <input type="text" id="nombre">
+    <label>Edad:</label>
+    <input type="number" id="edad">
+    <label>Contacto:</label>
+    <input type="text" id="contacto">
+    <label>Alergias:</label>
+    <input type="text" id="alergias">
+    <label>Historial Médico:</label>
+    <textarea id="historial"></textarea>
+    <button onclick="guardarPaciente()">Guardar Paciente</button>
+  </div>
+
+  <h2>Historia Clínica</h2>
+  <div class="card">
+    <label>Diagnóstico:</label>
+    <input type="text" id="diagnostico">
+    <label>Tratamiento:</label>
+    <input type="text" id="tratamiento">
+    <label>Observaciones:</label>
+    <textarea id="observaciones"></textarea>
+    <button onclick="guardarHistoria()">Guardar Historia Clínica</button>
+  </div>
+
+  <h2>Consentimiento Informado</h2>
+  <div class="card">
+    <p>He sido informado/a del procedimiento y acepto realizarlo.</p>
+    <canvas id="firma" width="300" height="150"></canvas><br>
+    <button onclick="limpiarFirma()">Limpiar Firma</button>
+    <button onclick="guardarConsentimiento()">Guardar Consentimiento</button>
+  </div>
+
+  <h2>Fotografías del Paciente</h2>
+  <div class="card">
+    <label>Subir foto (pre o post tratamiento):</label>
+    <input type="file" id="foto" accept="image/*">
+    <div id="fotoContainer"></div>
+  </div>
+
+  <h2>Historial Guardado</h2>
+  <div class="card">
+    <label>Buscar paciente:</label>
+    <input type="text" id="buscar" oninput="buscarPaciente()">
+    <pre id="historialGuardado"></pre>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("firma");
+    const ctx = canvas.getContext("2d");
+    let dibujando = false;
+
+    canvas.addEventListener("mousedown", () => dibujando = true);
+    canvas.addEventListener("mouseup", () => {
+      dibujando = false;
+      ctx.beginPath();
+    });
+    canvas.addEventListener("mousemove", dibujar);
+
+    function dibujar(e) {
+      if (!dibujando) return;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#000";
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    function limpiarFirma() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function guardarPaciente() {
+      const paciente = {
+        nombre: document.getElementById("nombre").value,
+        edad: document.getElementById("edad").value,
+        contacto: document.getElementById("contacto").value,
+        alergias: document.getElementById("alergias").value,
+        historial: document.getElementById("historial").value,
+        fotos: [],
+        historias: [],
+        consentimiento: null
+      };
+      localStorage.setItem("pacienteActual", JSON.stringify(paciente));
+      mostrarHistorial();
+    }
+
+    function guardarHistoria() {
+      const paciente = JSON.parse(localStorage.getItem("pacienteActual"));
+      if (!paciente) return alert("Primero registre un paciente");
+      paciente.historias.push({
+        fecha: new Date().toLocaleString(),
+        diagnostico: document.getElementById("diagnostico").value,
+        tratamiento: document.getElementById("tratamiento").value,
+        observaciones: document.getElementById("observaciones").value
+      });
+      localStorage.setItem("pacienteActual", JSON.stringify(paciente));
+      mostrarHistorial();
+    }
+
+    function guardarConsentimiento() {
+      const paciente = JSON.parse(localStorage.getItem("pacienteActual"));
+      if (!paciente) return alert("Primero registre un paciente");
+      paciente.consentimiento = canvas.toDataURL();
+      localStorage.setItem("pacienteActual", JSON.stringify(paciente));
+      mostrarHistorial();
+    }
+
+    document.getElementById("foto").addEventListener("change", function () {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const paciente = JSON.parse(localStorage.getItem("pacienteActual"));
+        if (!paciente) return alert("Primero registre un paciente");
+        paciente.fotos.push(e.target.result);
+        localStorage.setItem("pacienteActual", JSON.stringify(paciente));
+        mostrarHistorial();
+      };
+      reader.readAsDataURL(this.files[0]);
+    });
+
+    function buscarPaciente() {
+      const nombre = document.getElementById("buscar").value;
+      const paciente = JSON.parse(localStorage.getItem("pacienteActual"));
+      if (paciente && paciente.nombre.includes(nombre)) {
+        mostrarHistorial();
+      }
+    }
+
+    function mostrarHistorial() {
+      const paciente = JSON.parse(localStorage.getItem("pacienteActual"));
+      if (!paciente) return;
+      let html = `Nombre: ${paciente.nombre}\nEdad: ${paciente.edad}\nContacto: ${paciente.contacto}\nAlergias: ${paciente.alergias}\nHistorial Médico: ${paciente.historial}\n\n`;
+      html += `Historias Clínicas:\n`;
+      paciente.historias.forEach((h, i) => {
+        html += `#${i + 1} - ${h.fecha}\n  Diagnóstico: ${h.diagnostico}\n  Tratamiento: ${h.tratamiento}\n  Observaciones: ${h.observaciones}\n\n`;
+      });
+      if (paciente.fotos.length > 0) {
+        html += `Fotos:\n`;
+        paciente.fotos.forEach(f => {
+          html += `<img src="${f}" width="80"> `;
+        });
+        html += `\n\n`;
+      }
+      if (paciente.consentimiento) {
+        html += `Firma del Consentimiento:<br><img src="${paciente.consentimiento}" width="150"><br>`;
+      }
+      document.getElementById("historialGuardado").innerHTML = html;
+    }
+
+    mostrarHistorial();
+  </script>
+</body>
+</html>
